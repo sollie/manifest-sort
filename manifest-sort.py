@@ -1,5 +1,6 @@
 import sys
 import yaml
+import subprocess
 from collections import OrderedDict
 
 
@@ -18,39 +19,55 @@ def sort_yaml_keys(data, key_to_move_last=None):
         return data
 
 
-if len(sys.argv) != 2:
-    print("Usage: python script.py <input_yaml_file>")
-    sys.exit(1)
+def get_staged_yaml_files():
+    """ Returns a list of staged YAML files. """
+    result = subprocess.run(
+        ["git", "diff", "--name-only", "--cached"], capture_output=True,
+        text=True)
+    files = result.stdout.splitlines()
+    return [f for f in files if f.endswith((".yml", ".yaml"))]
 
-input_file = sys.argv[1]
 
-try:
-    with open(input_file, 'r') as file:
-        data = yaml.safe_load(file)
+def process_file(file_path):
+    """ Reads, sorts, and updates the file if needed. """
+    try:
+        with open(file_path, 'r') as file:
+            data = yaml.safe_load(file)
 
-    sorted_data = sort_yaml_keys(data, key_to_move_last="env")
+        sorted_data = sort_yaml_keys(data, key_to_move_last="env")
 
-    def ordered_dict_representer(dumper, data):
-        return dumper.represent_dict(data.items())
+        original_yaml = yaml.dump(
+            data, sort_keys=False, default_flow_style=False)
+        sorted_yaml = yaml.dump(
+            sorted_data, sort_keys=False, default_flow_style=False)
 
-    yaml.add_representer(OrderedDict, ordered_dict_representer)
+        if original_yaml != sorted_yaml:
+            with open(file_path, 'w') as file:
+                file.write(sorted_yaml)
+            return True  # File was modified
 
-    original_yaml = yaml.dump(data, sort_keys=False, default_flow_style=False)
-    sorted_yaml = yaml.dump(sorted_data, sort_keys=False,
-                            default_flow_style=False)
+    except (FileNotFoundError, yaml.YAMLError) as e:
+        print(f"Error processing '{file_path}': {e}")
+        return False
 
-    if original_yaml != sorted_yaml:
-        with open(input_file, 'w') as file:
-            file.write(sorted_yaml)
-        print(f"File '{input_file}' has been modified.")
+    return False
+
+
+if __name__ == "__main__":
+    yaml_files = get_staged_yaml_files()
+
+    if not yaml_files:
+        sys.exit(0)  # No YAML files staged, exit with success
+
+    modified = False
+
+    for file in yaml_files:
+        if process_file(file):
+            modified = True
+
+    if modified:
+        print("Some YAML files were modified. Please stage the changes and " +
+              "commit again.")
         sys.exit(1)
     else:
-        print("No changes needed in the file.")
-        sys.exit(0)
-
-except FileNotFoundError:
-    print(f"Error: File '{input_file}' not found.")
-    sys.exit(1)
-except yaml.YAMLError as e:
-    print(f"Error: Failed to parse YAML file. {e}")
-    sys.exit(1)
+        sys.exit(0)  # No changes needed
