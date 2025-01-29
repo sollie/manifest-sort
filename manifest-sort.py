@@ -24,6 +24,7 @@ def get_staged_yaml_files():
     result = subprocess.run(
         ["git", "diff", "--name-only", "--cached"], capture_output=True,
         text=True)
+    print(result.stdout)
     files = result.stdout.splitlines()
     return [f for f in files if f.endswith((".yml", ".yaml"))]
 
