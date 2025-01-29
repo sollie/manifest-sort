@@ -4,6 +4,8 @@ from collections import OrderedDict
 
 
 def sort_yaml_keys(data, key_to_move_last=None):
+    """ Recursively sorts YAML keys, moving a specific key to the end if
+    provided. """
     if isinstance(data, dict):
         sorted_keys = sorted(k for k in data.keys() if k != key_to_move_last)
         if key_to_move_last in data:
@@ -33,7 +35,19 @@ try:
 
     yaml.add_representer(OrderedDict, ordered_dict_representer)
 
-    print(yaml.dump(sorted_data, sort_keys=False, default_flow_style=False))
+    original_yaml = yaml.dump(data, sort_keys=False, default_flow_style=False)
+    sorted_yaml = yaml.dump(sorted_data, sort_keys=False,
+                            default_flow_style=False)
+
+    if original_yaml != sorted_yaml:
+        with open(input_file, 'w') as file:
+            file.write(sorted_yaml)
+        print(f"File '{input_file}' has been modified.")
+        sys.exit(1)
+    else:
+        print("No changes needed in the file.")
+        sys.exit(0)
+
 except FileNotFoundError:
     print(f"Error: File '{input_file}' not found.")
     sys.exit(1)
