@@ -1,0 +1,46 @@
+name: Build Standalone Binaries
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: macos-15
+            arch: arm64
+            target: macos-arm64
+          - os: ubuntu-latest
+            arch: amd64
+            target: linux-amd64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          python3 -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Build Binary
+        run: |
+          source venv/bin/activate
+          pyinstaller --onefile manifest-sort.py --name manifest-sort-${{ matrix.target }}
+
+      - name: Upload Built Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifest-sort-${{ matrix.target }}
+          path: dist/manifest-sort-${{ matrix.target }}
+
